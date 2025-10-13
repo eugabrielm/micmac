@@ -1,3 +1,4 @@
+
 /*Header-MicMac-eLiSe-25/06/2007
 
     MicMac : Multi Image Correspondances par Methodes Automatiques de Correlation
@@ -160,7 +161,7 @@ class cAppli_Ortho
          } eModeMapBox;
 
          cAppli_Ortho(const cCreateOrtho &,int argc,char ** argv);
-
+         ~cAppli_Ortho();
          void DoAll();
 
          cInterfChantierNameManipulateur * ICNM() const;
@@ -188,6 +189,12 @@ class cAppli_Ortho
               return   mDynGlob;
          }
      private :
+         // ADDED BY GABRIEL
+        std::vector<Tiff_Im*> mPerImMaskFiles; // lazy per-image mask files (size = #global images)
+        Tiff_Im * GetPerImMaskFile(int aGlobIndex); // create/get mask file for a global image
+        void SauvPerImageMasks(); // write masks for current block from mImIndex/mLutInd/mIms
+        
+        // END ADDED BY GABRIEL
 
          Box2di  BoxImageGlob();
          cFileOriMnt GetOriMnt(const std::string & aName) const;

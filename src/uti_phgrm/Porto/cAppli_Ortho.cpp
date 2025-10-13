@@ -443,7 +443,9 @@ void cAppli_Ortho::OrthusCretinus()
    DoIndexNadir();
    MakeOrthoOfIndex();
    SauvAll();
+   
 }
+
 
 
 bool cAppli_Ortho::DoEgGlob() const
@@ -453,8 +455,9 @@ bool cAppli_Ortho::DoEgGlob() const
 
 
 void cAppli_Ortho::SauvAll()
-{
+{   
     SauvOrtho();
+    SauvPerImageMasks();
     SauvLabel();
 }
 void cAppli_Ortho::SauvOrtho()
@@ -623,7 +626,7 @@ const std::string &  cAppli_Ortho::WD() const
 
 /*Footer-MicMac-eLiSe-25/06/2007
 
-Ce logiciel est un programme informatique servant �  la mise en
+Ce logiciel est un programme informatique servant �  la mise en
 correspondances d'images pour la reconstruction du relief.
 
 Ce logiciel est régi par la licence CeCILL-B soumise au droit français et
@@ -639,17 +642,98 @@ seule une responsabilité restreinte pèse sur l'auteur du programme,  le
 titulaire des droits patrimoniaux et les concédants successifs.
 
 A cet égard  l'attention de l'utilisateur est attirée sur les risques
-associés au chargement,  �  l'utilisation,  �  la modification et/ou au
-développement et �  la reproduction du logiciel par l'utilisateur étant 
-donné sa spécificité de logiciel libre, qui peut le rendre complexe �  
-manipuler et qui le réserve donc �  des développeurs et des professionnels
+associés au chargement,  �  l'utilisation,  �  la modification et/ou au
+développement et �  la reproduction du logiciel par l'utilisateur étant 
+donné sa spécificité de logiciel libre, qui peut le rendre complexe �  
+manipuler et qui le réserve donc �  des développeurs et des professionnels
 avertis possédant  des  connaissances  informatiques approfondies.  Les
-utilisateurs sont donc invités �  charger  et  tester  l'adéquation  du
-logiciel �  leurs besoins dans des conditions permettant d'assurer la
+utilisateurs sont donc invités �  charger  et  tester  l'adéquation  du
+logiciel �  leurs besoins dans des conditions permettant d'assurer la
 sécurité de leurs systèmes et ou de leurs données et, plus généralement, 
-�  l'utiliser et l'exploiter dans les mêmes conditions de sécurité. 
+�  l'utiliser et l'exploiter dans les mêmes conditions de sécurité. 
 
-Le fait que vous puissiez accéder �  cet en-tête signifie que vous avez 
+Le fait que vous puissiez accéder �  cet en-tête signifie que vous avez 
 pris connaissance de la licence CeCILL-B, et que vous en avez accepté les
 termes.
 Footer-MicMac-eLiSe-25/06/2007*/
+
+
+// ADDED BY GABRIEL
+Tiff_Im * cAppli_Ortho::GetPerImMaskFile(int aGlobIndex)
+{
+    if ((int)mPerImMaskFiles.size() != (int)mVAllOrhtos.size())
+        mPerImMaskFiles.resize(mVAllOrhtos.size(), (Tiff_Im*)0);
+
+    if (mPerImMaskFiles[aGlobIndex])
+        return mPerImMaskFiles[aGlobIndex];
+
+    std::string dir = mWorkDir + "OrthoByFrameMasks/";
+    ELISE_fp::MkDirRec(dir);
+    
+    // Usa ICNM para gerar nome consistente
+    const std::string & aOriginalName = (*mVIm)[aGlobIndex];
+    std::string aMaskName = dir + "Mask_" + StdPrefix(aOriginalName) + ".tif";
+
+    bool IsNew;
+    Tiff_Im aTF = Tiff_Im::CreateIfNeeded
+                  (
+                      IsNew,
+                      aMaskName,
+                      mBoxCalc.sz(),
+                      GenIm::u_int1,
+                      Tiff_Im::No_Compr,
+                      Tiff_Im::BlackIsZero
+                  );
+    
+    mPerImMaskFiles[aGlobIndex] = new Tiff_Im(aTF);
+    return mPerImMaskFiles[aGlobIndex];
+}
+
+void cAppli_Ortho::SauvPerImageMasks()
+{
+    if (mVLI.empty()) 
+        return;
+
+    int nLocal = (int)mVLI.size();
+
+    // Para cada imagem carregada no bloco
+    for (int aLocal = 0; aLocal < nLocal; ++aLocal)
+    {
+        int aGlobIndex = mLutInd.data()[aLocal];
+        if (aGlobIndex < 0 || aGlobIndex >= (int)mVAllOrhtos.size()) 
+            continue;
+
+        Tiff_Im * pMask = GetPerImMaskFile(aGlobIndex);
+        if (!pMask)
+            continue;
+
+        // Cria máscara: 255 onde pixel == aLocal, 0 caso contrário
+        Fonc_Num aMaskF = 255 * (mImIndex.in() == aLocal);
+
+        // Escreve usando mesma lógica da ortofoto
+        ELISE_COPY
+        (
+            rectangle(mCurBoxOut._p0, mCurBoxOut._p1),
+            trans(aMaskF, -mCurBoxIn._p0),
+            pMask->out()
+        );
+    }
+}
+
+
+
+
+cAppli_Ortho::~cAppli_Ortho()
+{
+    // Itera sobre todos os ponteiros de Tiff_Im que foram criados
+    for (size_t i = 0; i < mPerImMaskFiles.size(); ++i)
+    {
+        if (mPerImMaskFiles[i] != 0) // Verifica se o ponteiro não é nulo
+        {
+            delete mPerImMaskFiles[i]; // Libera a memória
+        }
+    }
+}
+
+
+
